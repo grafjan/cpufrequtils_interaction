@@ -59,10 +59,15 @@ def getAvailableGovernors(info):
     return availableGovernors
 
 
-def getCoreNumber():
-    c = subprocess.Popen(["cat", "/proc/cpuinfo"], stdout=subprocess.PIPE)
-    g = subprocess.Popen(["grep", "processor"], stdin=c.stdout, stdout=subprocess.PIPE)
-    return int(subprocess.check_output(["wc", "-l"], stdin=g.stdout).decode("utf-8"))
+def getCoreNumber(info):
+    maxCoreIndex = 0
+    for line in info:
+        if "analyzing CPU " in line:
+            index = int(line.split("analyzing CPU ")[1].split(":")[0])
+            if index > maxCoreIndex:
+                maxCoreIndex = index
+    cores = maxCoreIndex + 1
+    return cores
 
 
 #---------------------- user interaction ----------------------
@@ -112,12 +117,9 @@ def readInGovernor(availableGovernors):
 
 
 #---------------------- apply changes ----------------------
-def applySettings(governor, min, max, cores):
-    governor = f" -g {governor}"
-    min = f" --min {min}MHz"
-    max = f" --max {max}MHz"
+def applySettings(min, max, governor, cores):
     for i in range(cores):
-        os.system(f"/usr/bin/cpufreq-set -c {i}{governor}{min}{max}")
+        os.system(f"/usr/bin/cpufreq-set -c {i} -g {governor} --min {min}MHz --max {max}MHz")
         print(f"Updated core {i}")
 
 
@@ -129,8 +131,7 @@ exitIfNotRoot()
 infoList = getHardwarSpecificationList()
 (min, max) = getFreqLimits(infoList)
 availableGovernors = getAvailableGovernors(infoList)
-cores = getCoreNumber()
-print(cores)
+cores = getCoreNumber(infoList)
 
 (enteredMin, enteredMax) = readInFreqLimits(min, max)
 enteredGovernor = readInGovernor(availableGovernors)
@@ -142,4 +143,4 @@ print("max: " + enteredMax)
 print("governor: " + enteredGovernor)
 print("----------------------------------")
 
-applySettings(enteredGovernor, enteredMin, enteredMax, cores)
+applySettings(enteredMin, enteredMax, enteredGovernor, cores)
